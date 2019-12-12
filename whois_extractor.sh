@@ -18,6 +18,7 @@ resolve_domains=0 #Resolve Domains into IPs
 
 whois_results_list=()
 whois_domain_items_list=( #CUSTOMIZABLE LIST OF WHOIS ITEMS TO RETRIEVE ON WHOIS DOMAIN QUERY
+    'IP:'
     'Domain Name:'
     'Registrar:'
     'Creation Date:'
@@ -41,6 +42,7 @@ whois_domain_items_list=( #CUSTOMIZABLE LIST OF WHOIS ITEMS TO RETRIEVE ON WHOIS
 )
 
 whois_ip_items_list=( #CUSTOMIZABLE LIST OF WHOIS ITEMS TO RETRIEVE ON WHOIS DOMAIN QUERY
+    'IP:'
     'NetRange:'
     'CIDR:'
     'NetName:'
@@ -54,6 +56,7 @@ whois_ip_items_list=( #CUSTOMIZABLE LIST OF WHOIS ITEMS TO RETRIEVE ON WHOIS DOM
 )
 
 whois_key_findings=( #KEY ELEMENTS TO FIND FOR AND PARSE INTO OUR WHOIS RESULTS (BOTH DOMAIN AN IP)
+    'IP:'
     'Registrar:'
     'Name Server:'
     'NetName:'
@@ -78,6 +81,7 @@ function run_whois {
     
     for a_target in "${targets_list[@]}";do     
         output=$(whois -I $a_target)
+        output_ip=""
         ip=$(getent hosts $a_target | head -n 1 | cut -d ' ' -f 1)
 
         printf '    [%d/%d] Querying: %s (IP: %s)\n' "$((i + 1))" "$cnt" "$a_target" "$ip"
@@ -86,11 +90,12 @@ function run_whois {
         if [[ "$output" == *"Domain Name:"* ]];then
             if [[ $resolve_domains -eq 1 ]];then
                 output_ip=$(whois -I $ip)
-                results=$(printf '[*] %s (IP: %s):\n%s\n%s\n' "$a_target" "$ip" "$output" "$output_ip")
-            fi
+            fi  
+            results=$(printf '%s\nIP:%s\n%s\n%s\n' "$a_target" "$ip" "$output" "$output_ip")
         else
-            results=$(printf '[*] %s (IP: %s):\n%s\n' "$a_target" "$ip" "$output")
+            results=$(printf '%s\nIP:%s\n' "$a_target" "$ip" "$output")
         fi
+        
         whois_results_list+=( "$results" ) 
         i=$i+1
     done
@@ -103,19 +108,14 @@ function output_results {
     SAVEIFS=$IFS   # Save current IFS
     
     for whois_response in "${whois_results_list[@]}";do
-
+        #EXTRACT TARGET
         target=$(echo "$whois_response" | sed -n 1p)
 
+        #PREPARE GREP CONDITIONS
         merged_grep_lists=( "${whois_domain_items_list[@]}" "${whois_ip_items_list[@]}" )
         grep_targets=$(IFS='|';echo "${merged_grep_lists[*]}";IFS=$' \t\n')
 
-        #if [[ "$whois_response" == *"Domain Name:"* ]];then #WHOIS RESULT OF A DOMAIN NAME
-        #    grep_targets=$(IFS='|';echo "${whois_domain_items_list[*]}";IFS=$' \t\n')
-        #elif [[ "$whois_response" == *"NetName:"* ]];then #WHOIS RESULT OF AN IP
-        #    grep_targets=$(IFS='|';echo "${whois_ip_items_list[*]}";IFS=$' \t\n')
-        #elif [[ "$whois_response" == *"Domain Name:"* && "$whois_response" == *"NetName:"*]];then #DOMAIN NAME WHOIS INCLUDING RESOLVED IP WHOIS DATA
-            
-        #fi
+        #EXTRACT RESULTS
         results=$(echo "$whois_response" | grep -i -E "$grep_targets")
         registered_or_not=$(echo "$whois_response" | grep -i -E "^No match|^NOT FOUND|^Not fo|AVAILABLE|^No Data Fou|has not been regi|No entri")
         IFS=$'\n'
