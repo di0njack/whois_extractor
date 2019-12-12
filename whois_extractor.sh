@@ -89,7 +89,9 @@ function run_whois {
         #IS A DOMAIN, CHECK IF WE WANT TO RESOLVE IT AND WHOIS THE IP ALSO
         if [[ "$output" == *"Domain Name:"* ]];then
             if [[ $resolve_domains -eq 1 ]];then
-                output_ip=$(whois -I $ip)
+                if ! [ -z "$ip" ];then
+                    output_ip=$(whois -I $ip)
+                fi
             fi  
             results=$(printf '%s\nIP:%s\n%s\n%s\n' "$a_target" "$ip" "$output" "$output_ip")
         else
